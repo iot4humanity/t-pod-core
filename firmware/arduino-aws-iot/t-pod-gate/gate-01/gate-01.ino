@@ -10,7 +10,6 @@ Adafruit_MLX90614 mlx = Adafruit_MLX90614();
 AWS_IOT WISE_Mqtt;
 
 #define irsensin    14  //IR Sensor Proxymity
-#define waterpin    27  //Sensor Water Level
 #define lredpin     25  //Led Red
 #define lbluepin    32  //Led Blue
 #define lgreenpin   33  //Led Green
@@ -21,6 +20,8 @@ AWS_IOT WISE_Mqtt;
 #define AWS_CONNECT     1
 #define MQTT_CONNECT    2
 #define DONE_CONNECT    3
+
+#define TIMEOUT_MQTT    2000  //millisecond
 
 #define HUMAN_DETECT    0
 #define TEMP_MEASURE    1
@@ -34,7 +35,6 @@ char WIFI_PASSWORD[]="**PASSWORD**";
 char HOST_ADDRESS[]="**HOST**";
 char CLIENT_ID[]= "gate-01";
 char TOPIC_NAME[]= "gate-disinfectant-01/data-01";
-//char* GATE_ID="gate-01";
 
 unsigned char Begin = false;
 
@@ -50,26 +50,38 @@ bool DataWaterLevel = true;
 bool Buzzer = false;
 bool mStateTemp;
 
+bool modeOnline  = true;
+
 uint64_t CountUsage = 0;
 
 struct tm timeinfo;
 const char* ntpServer = "pool.ntp.org";
-const long  gmtOffset_sec = 25200;
+const long  gmtOffset_sec = 21600;  //+7.00
 const int   daylightOffset_sec = 3600;
 char timeStringBuff[50]; //50 chars should be enough
 
 void setup() {
+  unsigned long last_millis;
   GPIO_Init();
   while(Begin != DONE_CONNECT){
     switch(Begin){
       case WIFI_CONNECT :
         lcd.clear();
-        while (status != WL_CONNECTED){   
+        last_millis = millis();
+        while (status != WL_CONNECTED &&  millis() - last_millis < 30000 ){   
             lcd.setCursor(0,0); lcd.print("Search WiFi     ");
             lcd.setCursor(0,1); lcd.print(WIFI_SSID);
             Serial.print("Attempting to connect to SSID: "); Serial.println(WIFI_SSID);
             status = WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
             delay(5000);
+        }
+        if (status != WL_CONNECTED ) {
+          modeOnline = false;
+          Begin = DONE_CONNECT;
+          lcd.setCursor(0,0); lcd.print("AP not Found     ");
+          lcd.setCursor(0,1); lcd.print("Offline Mode     ");
+          delay(1000);
+          break;
         }
         
         lcd.setCursor(0,0); lcd.print("Connected to    ");
@@ -84,10 +96,20 @@ void setup() {
         break;
         
       case AWS_CONNECT :
-        while(WISE_Mqtt.connect(HOST_ADDRESS,CLIENT_ID) != false){
+        last_millis = millis();
+        while(WISE_Mqtt.connect(HOST_ADDRESS,CLIENT_ID) != false && millis() - last_millis < 20000 ){
             lcd.setCursor(0,0); lcd.print("Connecting to   ");
             lcd.setCursor(0,1); lcd.print("AWS Cloud       ");
             delay(1000);
+        }
+
+        if (WISE_Mqtt.connect(HOST_ADDRESS,CLIENT_ID) != false ) {
+          modeOnline = false;
+          Begin = DONE_CONNECT;
+          lcd.setCursor(0,0); lcd.print("cant connect AWS ");
+          lcd.setCursor(0,1); lcd.print("Offline Mode     ");
+          delay(1000);
+          break;
         }
         
         lcd.setCursor(0,0); lcd.print("Connected to    ");
@@ -98,12 +120,23 @@ void setup() {
         break;
 
       case MQTT_CONNECT :
-        while(WISE_Mqtt.subscribe(TOPIC_NAME,mySubCallBackHandler) != false)
+        last_millis = millis();
+        while(WISE_Mqtt.subscribe(TOPIC_NAME,mySubCallBackHandler) != false && millis() - last_millis < 20000 )
         {
             lcd.setCursor(0,0); lcd.print("Connecting to   ");
             lcd.setCursor(0,1); lcd.print("MQTT Cloud      ");
             delay(1000);
         }
+
+        if (WISE_Mqtt.subscribe(TOPIC_NAME,mySubCallBackHandler) != false ) {
+          modeOnline = false;
+          Begin = HUMAN_DETECT;
+          lcd.setCursor(0,0); lcd.print("cant Subs MQTT  ");
+          lcd.setCursor(0,1); lcd.print("Offline Mode    ");
+          delay(1000);
+          break;
+        }
+        
         lcd.setCursor(0,0); lcd.print("Connected to    ");
         lcd.setCursor(0,1); lcd.print("MQTT Cloud      ");
         Serial.println("Connected to MQTT");
@@ -149,11 +182,13 @@ void loop() {
       if(mStateTemp == true)BuzzerControl(true,8);
       else BuzzerControl(false,8);
       delay(500);
-      printLocalTime();
+      if(modeOnline){
+        printLocalTime();
 //      strftime(timeStringBuff, sizeof(timeStringBuff), "%A, %B %d %Y %H:%M:%S", &timeinfo);
 //      strftime(payload, sizeof(payload), "%A, %B %d %Y %H:%M:%S", &timeinfo);
-      sprintf(payload,"\"%d-%d-%d %d:%d\",\"gate-01\",%0.2f",timeinfo.tm_year+1900,timeinfo.tm_mon+1,timeinfo.tm_mday ,timeinfo.tm_hour,timeinfo.tm_min,MaxDataTemperature);
-      Mqtt_Send(payload);
+        sprintf(payload,"\"%d-%d-%d %d:%d\",\"gate-02\",%0.2f",timeinfo.tm_year+1900,timeinfo.tm_mon+1,timeinfo.tm_mday ,timeinfo.tm_hour,timeinfo.tm_min,MaxDataTemperature);
+        Mqtt_Send(payload);  
+      }
       Begin = mStateTemp == true ? COVID_DETECT : SPRAY_PROCESS;
       break;
 

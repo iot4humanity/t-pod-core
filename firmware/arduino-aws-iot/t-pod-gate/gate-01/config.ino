@@ -4,7 +4,6 @@ void GPIO_Init(void){
     mlx.begin(); 
     // Define inputs and outputs
     pinMode(irsensin, INPUT);
-    pinMode(waterpin, INPUT);
     pinMode(lredpin, OUTPUT);
     pinMode(lbluepin, OUTPUT);
     pinMode(lgreenpin, OUTPUT);
@@ -25,4 +24,3 @@ void GPIO_Init(void){
     digitalWrite(lbluepin,true); delay(500); digitalWrite(lbluepin,false);
     
 }
-
