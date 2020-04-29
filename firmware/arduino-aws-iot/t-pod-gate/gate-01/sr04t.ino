@@ -20,8 +20,18 @@ void BuzzerControl(bool mBuzz, unsigned char mBuzzLong){
 }
 
 void Mqtt_Send(char *mDataString){
+    unsigned long last_millis = millis();
     Serial.print("MQTT DATA : "); Serial.println(mDataString);
-    while(WISE_Mqtt.publish(TOPIC_NAME,payload) != 0);
+    while((WISE_Mqtt.publish(TOPIC_NAME,payload) != 0 )&& millis()-last_millis < TIMEOUT_MQTT );
+    
+    if(WISE_Mqtt.publish(TOPIC_NAME,payload) != 0 ){
+      digitalWrite(lbluepin,1);
+      delay(500);
+      digitalWrite(lbluepin,0);
+    }
+//      CountMqtt++;
+//      if (CountMqtt > 10) modeOnline = false;
+//    }
 }
 
 
@@ -34,4 +44,3 @@ void printLocalTime()
   }
 //  Serial.println(&timeinfo,"%A, %B %d %Y %H:%M:%S");
 }
-
