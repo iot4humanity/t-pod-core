@@ -19,15 +19,15 @@
 #define OFFSET    2.3
 
 // Update these with values suitable for your network.
-const char* ssid = "emergency";
-const char* password = "bismillah";
-const char* mqtt_server = "mqtt.lockerwise.com";
+const char* ssid = "ssid wifi";
+const char* password = "pass wifi";
+const char* mqtt_server = "mqtt.server.com";
 
 #define mqtt_port 1883
-#define MQTT_USER "lokaloo-01"
-#define MQTT_PASSWORD "covid19WFH"
-#define TOPIC_PUBLISH "/data/publish/esp32"
-#define TOPIC_SUBS "/data/subs/esp32"
+#define MQTT_USER "usermqtt"
+#define MQTT_PASSWORD "passmqtt"
+#define TOPIC_PUBLISH "/data/publish/esp32/data2"
+#define TOPIC_SUBS "/data/subs/esp32/data2"
 
 WiFiClient wifiClient;
 LiquidCrystal_I2C lcd(0x27, 16, 2);
